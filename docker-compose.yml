@@ -1,0 +1,86 @@
+version: "3.8"
+
+services:
+  #hadoop - i.e. hdfs...namenode
+  #- Keeps track of where everything is (in a namespace(?))
+  #  - i.e. for a given file, what blocks, on what datanodes, make it up
+  #- Manages replication, etc.
+  #- when we add a file to HDFS, namenode decides (blocks, datanodes) to put it
+  #- when spark job runs, driver asks namemode for locaiton of file
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    environment:
+      - CLUSTER_NAME=test
+    ports:
+      - "9870:9870"  # HDFS Web UI
+      - "9000:9000"  # HDFS protocol
+    volumes:
+      #standard directory for hadoop meta data?
+      - hadoop_namenode:/hadoop/dfs/name
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
+    depends_on:
+      - hadoop-namenode
+    volumes:
+      #standard directory for hadoop data
+      - hadoop_datanode:/hadoop/dfs/data
+
+  spark-master:
+    image: bitnami/spark:latest
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION=no
+      - SPARK_RPC_ENCRYPTION=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    volumes:
+      #./path:/path syntax is for a "bind mount" - not a volume in the container, a
+      #...mounted path from local machine...updates on to local files will show in container
+      #...and vice versa
+      #...bind mounts are good for local docker work...not relevant for swarm, kubernetes, etc?
+      #opt/ path is where we put our own apps in Linux
+      #this spark-apps folder will contain .py file, as well as, in theory,
+      #... any local files (python libraries, JAR files needed)
+      #...we'll run the job on this spark "master"...and:
+      #... - The driver process will be launched (on the master)
+      #... - The driver will request resources (executors)
+      #... - Executors will will be assigned to worker nodes.
+      - ./spark:/opt/spark-apps
+
+  spark-worker-1:
+    image: bitnami/spark:latest
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+
+  spark-worker-2:
+    image: bitnami/spark:latest
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+
+#these are "named volumes"
+#...different from bind mounts...they are managed by docker itself
+#...Data is stored in Docker’s internal storage system
+#......not directly accessible from local machine file system
+#...using them:
+#...- for Storing persistent data across container restarts, and...
+#...  - this is important for Hadoop! it uses binary data!
+#...- because HDFS data doesn't need to be expose to host, anyway.
+#...these volumes are mounted to docker services (above)
+volumes:
+  #volume where HDFS namenode stores its metadata and filesystem tree
+  hadoop_namenode:
+  #volume used to persistently store HDFS block data...
+  #...actual files and data blocks stored in HDFS
+  hadoop_datanode:
