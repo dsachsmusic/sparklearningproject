@@ -1,5 +1,5 @@
 Copy sample csv file to namenode and and use hdfs commands to add it to hdfs
-- docker cp ./data/events.csv hadoop-namenode:/tmp/events.csv
+- docker cp ./data/events.log hadoop-namenode:/tmp/events.log
 - docker exec -it hadoop-namenode bash
 - hdfs dfs -mkdir -p /input
 - hdfs dfs -put /tmp/events.csv /input/

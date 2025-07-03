@@ -27,14 +27,23 @@ spark = SparkSession.builder \
     .appName("Log Parser RDD Job") \
     .getOrCreate()
 
+#we'll be parsing raw text....this will be an RDD...
+#...so we use sparkcontext
+#...we have to use RDD type/operations(?) on to....
+#...so Spark to be able to chunk it for (parallel) processing
+#...for data with a schema (like sql/tabular), don't need an RDD
 sc = spark.sparkContext
 
 # Load raw log lines (as RDD)
+# as of 7/3/2025, prior to running the code
+# # ...events.log should be manually copied to container, then added to HDFS
 rdd = sc.textFile("hdfs://hadoop-namenode:9000/input/events.log")
 
 # Parse log lines like: [2024-06-01 12:00:00] user_id=123 event=click
 def parse_line(line):
     try:
+        #split the line at the closing square bracket of the time stamp...
+        #...save first part, temporariliy as ts_part...them, we'll strip that further
         ts_part, rest = line.split("] ", 1)
         timestamp = ts_part.strip("[]")
         parts = rest.split()
@@ -44,6 +53,19 @@ def parse_line(line):
     except Exception as e:
         return None  # skip malformed lines
 
+# .map() method in python is a standard method for iterating through the function...
+# ...(parse_line, in this case)
+# ....each item in the object (rdd, in this case)
+# rdd (assigned above) is...an rdd...
+# ...
+# ...map function here, doesn't return the result of the operation (new values)...
+# ......instead, it returns new rdd objects.  transformation itself the "map(parse_line)
+# ......when an acction, like "collect" or "count" is called...
+# ......(at that point, DAG is built, submitted)
+# ...the new rdd objects contain info like
+# ... - where it came from (parent object (?))
+# ... - what transformation to apply
+# ... - partitioning info(?)
 parsed_rdd = rdd.map(parse_line).filter(lambda row: row is not None)
 
 # Filter for 'click' events
