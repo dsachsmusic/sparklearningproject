@@ -1,0 +1,4 @@
+[2024-06-01 12:00:00] user_id=123 event=click
+[2024-06-01 12:01:00] user_id=123 event=scroll
+[2024-06-01 12:01:30] user_id=456 event=click
+[2024-06-01 12:02:00] user_id=123 event=click
